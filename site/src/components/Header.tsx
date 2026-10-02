@@ -4,7 +4,8 @@ import { useEffect } from "react";
 import { Icon } from "@/components/icons";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import type { RouteKey } from "@/types/honcho";
-import { useNav } from "@/lib/nav";
+import { useHash, useNav } from "@/lib/nav";
+import { readPeerWorkspaceFilter } from "@/lib/peerWorkspaceFilter";
 import { useActiveHonchoOptions, useActiveWorkspace } from "@/lib/honcho/config";
 
 export interface HeaderProps {
@@ -16,6 +17,10 @@ export function Header({ current }: HeaderProps) {
   const { navigate } = useNav();
   const apiOpts = useActiveHonchoOptions();
   const { workspaceId } = useActiveWorkspace();
+  const peerWorkspaceFilter = readPeerWorkspaceFilter(useHash());
+  const breadcrumbWorkspace = peerWorkspaceFilter === null
+    ? "all workspaces"
+    : peerWorkspaceFilter ?? workspaceId ?? "self-hosted";
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -33,8 +38,8 @@ export function Header({ current }: HeaderProps) {
           <Icon name="terminal" className="text-accent shrink-0" size={14} />
           <button onClick={() => navigate("fleet")} className="text-text-muted hover:text-text-primary transition-colors duration-150">honcho</button>
           <span className="text-text-muted">/</span>
-          <button onClick={() => navigate("workspaces")} title={workspaceId ?? "self-hosted"} className="min-w-0 max-w-32 lg:max-w-56 truncate text-text-muted hover:text-text-primary transition-colors duration-150">
-            {workspaceId ?? "self-hosted"}
+          <button onClick={() => navigate("workspaces")} title={breadcrumbWorkspace} className="min-w-0 max-w-32 lg:max-w-56 truncate text-text-muted hover:text-text-primary transition-colors duration-150">
+            {breadcrumbWorkspace}
           </button>
           <span className="text-text-muted">/</span>
           <span className="text-accent">{current}</span>

@@ -30,6 +30,48 @@ test("v2 trace projection preserves diagnostics and provenance without content",
   assert.ok(!JSON.stringify(projected).includes("private"));
 });
 
+// v3.2.2 retains the v2 CloudEvents schema. Langfuse's richer span-tree
+// projection is separate from this metadata-only collector reader.
+test("Honcho 3.2.2 traces preserve content references without exposing tool or thinking payloads", () => {
+  const call = event({
+    honcho_version: "3.2.2", agent_type: "dialectic", run_id: "run-1",
+    duration_ms: 1420, outcome: "success",
+    input_message_refs: ["sha256:tool-result"],
+    output_thinking_ref: "sha256:thinking",
+    output_reasoning_ref: "sha256:reasoning",
+    output_tool_calls: [{ id: "call-1", name: "query_memory", input: { query: "private-canary" } }],
+    output_signatures: ["private-canary"],
+  });
+  const result = parseTraceLines(JSON.stringify([
+    call,
+    event({ role: "__thinking__", content_hash: "sha256:thinking", content: "private-canary" }, "trace.content", 1),
+    event({ role: "tool", tool_call_id: "call-1", content_hash: "sha256:tool-result", content: "private-canary" }, "trace.content", 1),
+  ]));
+  assert.equal(result.entries.length, 1);
+  assert.equal(result.skipped, 2);
+  assert.equal(result.malformed, 0);
+  assert.deepEqual(result.entries[0].metadata, {
+    run_id: "run-1", agent_type: "dialectic", honcho_version: "3.2.2",
+    output_thinking_ref: "sha256:thinking", output_reasoning_ref: "sha256:reasoning",
+    duration_ms: 1420, input_message_refs: ["sha256:tool-result"], outcome: "success",
+    timestamp: "2026-09-18T17:00:00.000Z", source: "/honcho/example/trace",
+  });
+  assert.ok(!JSON.stringify(result).includes("private-canary"));
+});
+
+test("recovered provider attempts remain visible in call traces despite Sentry suppression", () => {
+  const common = { honcho_version: "3.2.2", run_id: "run-1", retry_attempts: 3, is_final_attempt: false };
+  const failed = event({ ...common, attempt: 1, outcome: "error", error_class: "APIConnectionError", duration_ms: 80 });
+  const recovered = { ...event({ ...common, attempt: 2, outcome: "success", duration_ms: 1420 }), id: "evt-2" };
+  const { entries } = parseTraceLines(JSON.stringify([failed, recovered]));
+  assert.deepEqual(entries.map(({ metadata }) => [metadata.attempt, metadata.outcome, metadata.duration_ms]), [
+    [2, "success", 1420], [1, "error", 80],
+  ]);
+  assert.deepEqual(filterTraces(entries, "run-1", "error", "all").map(({ id }) => id), ["evt-1"]);
+  assert.equal(entries[1].metadata.is_final_attempt, false);
+  assert.equal(entries[1].metadata.error_class, "APIConnectionError");
+});
+
 test("v1 archives and missing metadata stay unknown rather than invented success or zero", () => {
   const projected = projectTrace(event({ model: "legacy" }, "llm.call.traced", 1));
   assert.equal(projected.schema_version, 1);

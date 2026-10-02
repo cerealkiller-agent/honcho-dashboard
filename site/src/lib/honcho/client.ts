@@ -20,6 +20,9 @@ import {
   HonchoApiError,
   type ApiConclusion,
   type ApiMessage,
+  type ApiPeer,
+  type ApiQueueStatus,
+  type ApiSession,
   type ApiScope,
   type ApiWebhookEndpoint,
   type ApiWorkspace,
@@ -207,6 +210,30 @@ export const honcho = {
     },
     delete(opts: HonchoClientOptions, workspaceId: string) {
       return request<void>(opts, "DELETE", ws(workspaceId));
+    },
+  },
+
+  /** Gap: SDK read helpers ensure (get-or-create) the workspace and peer. */
+  peers: {
+    list(opts: HonchoClientOptions, workspaceId: string, params: ListParams = {}) {
+      return request<Page<ApiPeer>>(opts, "POST", `${ws(workspaceId)}/peers/list${listQuery(params)}`, listBody(params));
+    },
+    async card(opts: HonchoClientOptions, workspaceId: string, peerId: string) {
+      const result = await request<{ peer_card: string[] | null }>(opts, "GET", `${ws(workspaceId)}/peers/${encodeURIComponent(peerId)}/card`);
+      return result.peer_card;
+    },
+    sessions(opts: HonchoClientOptions, workspaceId: string, peerId: string, params: ListParams = {}) {
+      return request<Page<ApiSession>>(opts, "POST", `${ws(workspaceId)}/peers/${encodeURIComponent(peerId)}/sessions${listQuery(params)}`, listBody(params));
+    },
+    search(opts: HonchoClientOptions, workspaceId: string, peerId: string, body: { query: string; limit?: number }) {
+      return request<ApiMessage[]>(opts, "POST", `${ws(workspaceId)}/peers/${encodeURIComponent(peerId)}/search`, body);
+    },
+  },
+
+  /** Keep the always-mounted shell from recreating a deleted active workspace. */
+  queue: {
+    status(opts: HonchoClientOptions, workspaceId: string) {
+      return request<ApiQueueStatus>(opts, "GET", `${ws(workspaceId)}/queue/status`);
     },
   },
 

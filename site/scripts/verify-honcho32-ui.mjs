@@ -21,7 +21,7 @@ const evidence = {conclusions:[root],messages:[{id:'message-1',session_id:'sessi
 const trace = {id:'synthetic-trace',type:'llm.call.traced',schema_version:2,metadata:{timestamp:date,source:'/honcho/synthetic/trace',workspace_name:ws.id,session_id:'session-1',model:'synthetic-model',outcome:'success',duration_ms:1420,attempt:1,retry_attempts:3,agent_type:'dialectic',system_prompt_ref:'sha256:synthetic-prompt',source_message_ids:['message-1']}};
 const pageOf = items => ({items,total:items.length,page:1,size:25,pages:1});
 async function contextFor(version, viewport) {
- const attributed = version === '3.2.1';
+ const attributed = ['3.2.1','3.2.2'].includes(version);
  const explicit = {...parent,source_ids:attributed?[]:null};
  const {observer_id,observed_id,...legacyEvidence} = root;
  const returnedEvidence = {...evidence,conclusions:[attributed?{...legacyEvidence,observer_id,observed_id}:legacyEvidence]};
@@ -82,7 +82,7 @@ async function shot(page,name) {
  if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)) overflows.push(name);
 }
 try {
- for(const version of ['3.2.0','3.2.1']) {
+ for(const version of ['3.2.0','3.2.1','3.2.2']) {
  for(const [label,viewport] of [['desktop',{width:1440,height:1050}],['mobile',{width:390,height:844}]]) {
   const {context,page,calls,state}=await contextFor(version,viewport);
   await page.goto(`${base}/#/chat?peer=alice`);
@@ -91,7 +91,7 @@ try {
   await page.getByRole('button',{name:'SEND',exact:true}).click();
   await page.getByRole('button',{name:/SHOW_EVIDENCE/}).click();
   await page.getByText(root.content,{exact:true}).waitFor();
-  await page.getByText(version==='3.2.1'?'alice → alice':'Peer attribution was not returned for this record.',{exact:true}).waitFor();
+  await page.getByText(version==='3.2.0'?'Peer attribution was not returned for this record.':'alice → alice',{exact:true}).waitFor();
   state.messageStatus=404;
   const beforeMessage=calls.length;
   await page.getByRole('button',{name:'READ_MESSAGE',exact:true}).click();
@@ -117,7 +117,7 @@ try {
   await page.keyboard.press('Escape');
   await page.getByRole('dialog').waitFor({state:'hidden'});
   await page.getByRole('button',{name:'WORKSPACE',exact:true}).click();
-  if(version==='3.2.1') {
+  if(version!=='3.2.0') {
    const longObserver='workspace-observer-with-a-long-peer-identifier-that-must-wrap-on-mobile';
    state.evidence={...evidence,conclusions:[root,{...root,id:'cross-peer',content:'Bob prefers afternoon planning.',observer_id:longObserver,observed_id:'bob'}]};
    await page.locator('input[placeholder^="ask across"]').fill('Compare planning preferences');
@@ -269,5 +269,5 @@ try {
   await context.close();
  }
  assert.deepEqual(unexpected,[]);assert.deepEqual(errors,[]);assert.deepEqual(overflows,[]);
- console.log(JSON.stringify({passed:true,checks:'3.2.0/3.2.1 desktop/mobile evidence and workspace peer attribution, null/empty parents, read-only message retrieval and retry, malformed attribution, dropdown/modal focus, provenance cycles/missing parents, workspace empty evidence, backlog, trace details, 3.0/3.1/unknown gating',output}));
+ console.log(JSON.stringify({passed:true,checks:'3.2.0/3.2.1/3.2.2 desktop/mobile evidence and workspace peer attribution, null/empty parents, read-only message retrieval and retry, malformed attribution, dropdown/modal focus, provenance cycles/missing parents, workspace empty evidence, backlog, trace details, 3.0/3.1/unknown gating',output}));
 } finally {await browser.close();}

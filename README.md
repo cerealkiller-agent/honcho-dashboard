@@ -244,7 +244,7 @@ Features introduced by Honcho 3.1 are capability-gated:
 - Network failures and other ambiguous responses fail conservatively: 3.1-only
   controls remain disabled without affecting older dashboard workflows.
 
-The dashboard uses `@honcho-ai/sdk` 2.5.1 for **Honcho 3.2.1** while
+The dashboard uses `@honcho-ai/sdk` 2.5.1 for **Honcho 3.2.1/3.2.2** while
 retaining the existing 3.0.x/3.1 workflows and 3.2.0 evidence/provenance. Conclusion responses retain optional
 `source_ids` (parent conclusion IDs) and `times_derived` attribution, including
 semantic-search results. On verified 3.2+ servers, **INCLUDE_EVIDENCE** collects
@@ -271,15 +271,21 @@ and claimed units, pending items/embeddings, dreams due, and measurement age. Do
 not add these values across workspaces or replicas; the work estimate is not an ETA.
 
 Compatibility is checked against the tagged
-[Honcho 3.2.1 release](https://github.com/plastic-labs/honcho/blob/v3.2.1/CHANGELOG.md)
-and its API schemas. Automated contract fixtures cover 3.0.x/3.1/3.2.0/3.2.1 chat and
+[Honcho 3.2.2 release](https://github.com/plastic-labs/honcho/releases/tag/v3.2.2)
+and its API schemas. Automated contract fixtures cover 3.0.x/3.1/3.2.0/3.2.1/3.2.2 chat and
 conclusions, proxy-routing headers, missing or malformed attribution fields, restricted-key
 errors, and provider-unavailable responses (`503`). Evidence and provenance were
 also verified through the dashboard against an isolated real Honcho 3.2.0 server,
 using a mock model and synthetic data. Post-upgrade live 3.2.1 checks passed for
 peer/workspace chat, evidence attribution, message reads, provenance, and backlog.
-See [3.2 verification details](docs/HONCHO_3_2_VALIDATION.md)
-and the [3.2.1 verification and upgrade guide](docs/HONCHO_3_2_1_VALIDATION.md).
+See [3.2 verification details](docs/HONCHO_3_2_VALIDATION.md),
+the [3.2.1 live verification](docs/HONCHO_3_2_1_VALIDATION.md), and the
+[3.2.2 compatibility and upgrade guide](docs/HONCHO_3_2_2_VALIDATION.md).
+The 3.2.2 review covers tagged source and synthetic fixtures, not live integration
+verification. Its API contracts and SDK are unchanged. The server upgrade adds a
+non-concurrent peer-session index migration that blocks writes to `session_peers`
+while it builds. Langfuse's new Agent Graph and richer traces are backend/exporter
+features, separate from the dashboard's metadata-only trace inspector.
 After upgrading your server, smoke-test Fleet, Conclusions/search, Chat,
 Scopes/context, and the operator DB panels against your migrated data and model.
 
@@ -299,6 +305,12 @@ JSONL export on the dashboard host. Configure Honcho's trace collector separatel
 ordinary application logs and reasoning JSONL are not this stream. Each line must
 contain a CloudEvent or a compact array of CloudEvents. Supported event types are
 `llm.call.traced` and `embedding.call.traced`, schema v1/v2.
+
+On Honcho 3.2.2, Langfuse requires `TELEMETRY_ENABLED=true` and its normal
+credentials/configuration; the removed `LANGFUSE_EXPORTER_MODE` is ignored.
+CloudEvents payload tracing is a separate opt-in and collector setup. Enabling
+Langfuse does not populate this dashboard's trace file. Review the telemetry
+destination and sensitive-payload handling before enabling either integration.
 
 For Docker, set `HONCHO_TRACE_FILE=/honcho-traces.jsonl` and add a read-only bind
 mount from your collector export to that path (see `docker-compose-example.yml`).

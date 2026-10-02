@@ -2,8 +2,6 @@
 
 import { honcho } from "@/lib/honcho/client";
 import { useActiveHonchoOptions, useActiveWorkspace } from "@/lib/honcho/config";
-import { getSdk } from "@/lib/honcho/sdk";
-import { toApiQueueStatus } from "@/lib/honcho/adapters";
 import { useHonchoQuery } from "@/lib/honcho/useQuery";
 import type { ApiQueueStatus } from "@/lib/honcho/types";
 
@@ -16,7 +14,7 @@ export function StatusBar() {
   );
   const queue = useHonchoQuery<ApiQueueStatus>(
     workspaceId ? `sdk/workspaces/${workspaceId}/queue/status` : null,
-    async (o) => toApiQueueStatus(await getSdk(o, workspaceId!).queueStatus()),
+    (o) => honcho.queue.status(o, workspaceId!),
     { refreshInterval: 10000 },
   );
 

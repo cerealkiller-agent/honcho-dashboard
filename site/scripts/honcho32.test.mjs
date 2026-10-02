@@ -17,7 +17,7 @@ const options = { reasoningLevel: "low", includeEvidence: true, evidenceCapabili
 
 test("new capability gates distinguish exact minimums, unknowns, and prereleases", () => {
   for (const version of ["3.0.12", "3.1.0", "3.1.2", "3.2.0-rc.1"]) assert.equal(capabilityAtVersion(version, [3, 2, 0]), "unsupported");
-  for (const version of ["v3.2.0", "3.2", "3.2.1", "3.2.0+build.4", "3.2.0+build-4", "4.0.0"]) assert.equal(capabilityAtVersion(version, [3, 2, 0]), "available");
+  for (const version of ["v3.2.0", "3.2", "3.2.1", "3.2.2", "3.2.0+build.4", "3.2.0+build-4", "4.0.0"]) assert.equal(capabilityAtVersion(version, [3, 2, 0]), "available");
   assert.equal(capabilityAtVersion("3.2.0-rc.1+build-4", [3, 2, 0]), "unsupported");
   for (const version of [undefined, "unknown", "development", "3.2garbage"]) assert.equal(capabilityAtVersion(version, [3, 2, 0]), "unknown");
   assert.equal(capabilityAtVersion("3.1.1", [3, 1, 2]), "unsupported");
@@ -89,7 +89,7 @@ test("provenance uses batched ordered premises, missing markers and workspace-wi
   assert.equal(new URL(requests.at(-1).url).searchParams.get("page"), "2");
 });
 
-for (const version of ["3.2.0", "3.2.1"]) {
+for (const version of ["3.2.0", "3.2.1", "3.2.2"]) {
   test(`SDK 2.5.1 preserves ${version} evidence attribution and explicit conclusion provenance`, async (t) => {
     const { observer_id, observed_id, ...legacyRecord } = evidence.conclusions[0];
     const records = version === "3.2.0" ? [legacyRecord] : [

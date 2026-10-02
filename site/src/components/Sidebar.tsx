@@ -9,8 +9,6 @@ import { cn } from "@/lib/utils";
 import { WorkspaceSelector } from "@/components/WorkspaceSelector";
 import { honcho } from "@/lib/honcho/client";
 import { useActiveWorkspace } from "@/lib/honcho/config";
-import { getSdk } from "@/lib/honcho/sdk";
-import { toApiQueueStatus } from "@/lib/honcho/adapters";
 import { useHonchoQuery } from "@/lib/honcho/useQuery";
 import type { ApiQueueStatus } from "@/lib/honcho/types";
 
@@ -27,7 +25,7 @@ export function Sidebar({ current, onNavigate }: SidebarProps) {
   );
   const queue = useHonchoQuery<ApiQueueStatus>(
     workspaceId ? `sdk/workspaces/${workspaceId}/queue/status` : null,
-    async (o) => toApiQueueStatus(await getSdk(o, workspaceId!).queueStatus()),
+    (o) => honcho.queue.status(o, workspaceId!),
     { refreshInterval: 10000 },
   );
 

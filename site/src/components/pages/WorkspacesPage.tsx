@@ -16,6 +16,7 @@ import { honcho } from "@/lib/honcho/client";
 import { useActiveHonchoOptions } from "@/lib/honcho/config";
 import { formatApiError, invalidate, useHonchoQuery } from "@/lib/honcho/useQuery";
 import type { ApiWorkspace } from "@/lib/honcho/types";
+import { peersHash } from "@/lib/peerWorkspaceFilter";
 
 const LIST_KEY = "workspaces/list";
 
@@ -226,7 +227,7 @@ function WorkspaceCard({
         />
       </div>
       <div className="flex items-center gap-1">
-        <Button variant="outline" className="flex-1" onClick={() => (window.location.hash = `#/peers?ws=${workspace.id}`)}>VIEW_PEERS</Button>
+        <Button variant="outline" className="flex-1" onClick={() => (window.location.hash = peersHash(workspace.id))}>VIEW_PEERS</Button>
         <motion.button
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}

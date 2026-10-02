@@ -13,15 +13,18 @@ export function WorkspaceSelector({ className }: { className?: string }) {
   );
 
   const items = useMemo(() => data?.items ?? [], [data]);
-  const options = useMemo(
-    () => items.map((w) => ({ value: w.id, label: w.id })),
-    [items],
-  );
+  const options = useMemo(() => {
+    const result = items.map((w) => ({ value: w.id, label: w.id }));
+    // A paginated or restricted list is not proof that the selected workspace
+    // does not exist. Preserve explicit navigation instead of silently switching.
+    if (workspaceId && !items.some((w) => w.id === workspaceId)) {
+      result.push({ value: workspaceId, label: workspaceId });
+    }
+    return result;
+  }, [items, workspaceId]);
 
   useEffect(() => {
     if (!workspaceId && items.length > 0) {
-      setWorkspaceId(items[0].id);
-    } else if (workspaceId && items.length > 0 && !items.find((i) => i.id === workspaceId)) {
       setWorkspaceId(items[0].id);
     }
   }, [items, workspaceId, setWorkspaceId]);
