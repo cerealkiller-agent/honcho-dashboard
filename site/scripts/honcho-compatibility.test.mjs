@@ -5,7 +5,7 @@ import { toApiConclusion } from "../src/lib/honcho/adapters.ts";
 import { honcho } from "../src/lib/honcho/client.ts";
 import { HonchoApiError } from "../src/lib/honcho/types.ts";
 
-// Response contracts from plastic-labs/honcho v3.1.0, v3.2.0, and v3.2.1,
+// Response contracts from plastic-labs/honcho v3.1.0 and v3.2.0–v3.2.2,
 // src/schemas/api.py (Conclusion) and the peer/workspace chat routes.
 const baseConclusion = {
   id: "conclusion-1",
@@ -22,7 +22,7 @@ const json = (value, status = 200) => new Response(JSON.stringify(value), {
   headers: { "content-type": "application/json" },
 });
 
-for (const version of ["3.0.12", "3.1.0", "3.1.2", "3.2.0", "3.2.1"]) {
+for (const version of ["3.0.12", "3.1.0", "3.1.2", "3.2.0", "3.2.1", "3.2.2"]) {
   test(`dashboard SDK and raw client preserve Honcho ${version} contracts`, async (t) => {
     invalidateSdk();
     t.after(invalidateSdk);
@@ -30,7 +30,7 @@ for (const version of ["3.0.12", "3.1.0", "3.1.2", "3.2.0", "3.2.1"]) {
       ? { ...baseConclusion, source_ids: ["source-1", "source-2"], times_derived: 4 }
       : baseConclusion;
     const explicit = { ...conclusion, id: "explicit-1", level: "explicit" };
-    if (version.startsWith("3.2.")) explicit.source_ids = version === "3.2.1" ? [] : null;
+    if (version.startsWith("3.2.")) explicit.source_ids = version === "3.2.0" ? null : [];
     const conclusions = [conclusion, explicit];
     const calls = [];
     t.mock.method(globalThis, "fetch", async (url, init = {}) => {

@@ -16,10 +16,10 @@ import { honcho as raw } from "@/lib/honcho/client";
 import { useActiveHonchoOptions, useActiveWorkspace } from "@/lib/honcho/config";
 import { formatApiError, invalidate, useHonchoQuery } from "@/lib/honcho/useQuery";
 import { getSdk } from "@/lib/honcho/sdk";
-import { toApiPeer, toApiMessage } from "@/lib/honcho/adapters";
 import type { ApiPeer, ApiMessage } from "@/lib/honcho/types";
 import { cn } from "@/lib/utils";
-import { useNav } from "@/lib/nav";
+import { useHash } from "@/lib/nav";
+import { peersHash, readPeerWorkspaceFilter } from "@/lib/peerWorkspaceFilter";
 
 type TypeFilter = "all" | "user" | "agent";
 
@@ -77,11 +77,14 @@ export function PeersPage() {
   const { push } = useToast();
   const confirm = useConfirm();
   const { enabled: canWrite } = useWriteActions();
-  const { navigate } = useNav();
+  // A pinned URL wins over the shared active workspace, including storage events
+  // from other tabs. Derive on every hash change so Back/Forward works too.
+  const workspaceFilter = readPeerWorkspaceFilter(useHash());
+  const workspaceId = workspaceFilter === undefined ? activeWorkspaceId : workspaceFilter;
+  const createWorkspaceId = workspaceId ?? activeWorkspaceId;
 
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
-  const [workspaceFilter, setWorkspaceFilter] = useState<string>("__active__");
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [observeMe, setObserveMe] = useState<boolean>(true);
@@ -93,14 +96,11 @@ export function PeersPage() {
   );
 
   const targetWorkspaces = useMemo(() => {
-    if (workspaceFilter === "all") {
+    if (workspaceFilter === null) {
       return (wsList.data?.items ?? []).map((w) => w.id);
     }
-    if (workspaceFilter === "__active__") {
-      return activeWorkspaceId ? [activeWorkspaceId] : [];
-    }
-    return [workspaceFilter];
-  }, [workspaceFilter, activeWorkspaceId, wsList.data]);
+    return workspaceId ? [workspaceId] : [];
+  }, [workspaceFilter, workspaceId, wsList.data]);
 
   // Fetch peers for each targeted workspace; merge into one list.
   const peersKey = targetWorkspaces.length
@@ -111,10 +111,7 @@ export function PeersPage() {
     async (o) => {
       const pages = await Promise.all(
         targetWorkspaces.map((ws) =>
-          getSdk(o, ws)
-            .peers({ size: 100 })
-            .then((p) => p.items.map((peer) => toApiPeer(peer)))
-            .catch(() => [] as ApiPeer[]),
+          raw.peers.list(o, ws, { size: 100 }).then((p) => p.items),
         ),
       );
       const seen = new Set<string>();
@@ -157,9 +154,7 @@ export function PeersPage() {
       push({ type: "error", message: "Peer id is required" });
       return;
     }
-    const targetWs = workspaceFilter === "all" || workspaceFilter === "__active__"
-      ? activeWorkspaceId
-      : workspaceFilter;
+    const targetWs = createWorkspaceId;
     if (!targetWs) {
       push({ type: "error", message: "Pick a workspace first" });
       return;
@@ -195,17 +190,18 @@ export function PeersPage() {
   const workspaceOptions = useMemo(() => {
     const opts: { value: string; label: string }[] = [{ value: "all", label: "all" }];
     for (const w of wsList.data?.items ?? []) {
-      opts.push({ value: w.id, label: w.id });
+      opts.push({ value: `ws:${w.id}`, label: w.id });
+    }
+    // The list may be paginated, restricted, or not loaded yet. Never disguise
+    // an explicitly linked workspace as another selection or an empty value.
+    if (workspaceId && !opts.some((o) => o.value === `ws:${workspaceId}`)) {
+      opts.push({ value: `ws:${workspaceId}`, label: workspaceId });
     }
     return opts;
-  }, [wsList.data]);
+  }, [wsList.data, workspaceId]);
 
   const effectiveWorkspaceValue =
-    workspaceFilter === "__active__" && activeWorkspaceId
-      ? activeWorkspaceId
-      : workspaceFilter === "__active__"
-        ? ""
-        : workspaceFilter;
+    workspaceFilter === null ? "all" : workspaceId ? `ws:${workspaceId}` : "";
 
   return (
     <div className="space-y-3">
@@ -216,7 +212,7 @@ export function PeersPage() {
           <div className="flex items-center gap-2">
             <RefreshButton label="REFRESH" onClick={() => refetch()} />
             {canWrite ? (
-              <Button icon="plus" onClick={() => setOpen(true)} disabled={!activeWorkspaceId}>
+              <Button icon="plus" onClick={() => setOpen(true)} disabled={!createWorkspaceId}>
                 NEW_PEER
               </Button>
             ) : (
@@ -250,7 +246,7 @@ export function PeersPage() {
             <Select
               className="min-w-[180px]"
               value={effectiveWorkspaceValue}
-              onChange={(v) => setWorkspaceFilter(v)}
+              onChange={(v) => { window.location.hash = peersHash(v === "all" ? null : v.slice(3)); }}
               options={workspaceOptions}
               triggerClassName="py-1.5"
             />
@@ -274,7 +270,7 @@ export function PeersPage() {
           {isLoading
             ? "loading…"
             : `${filtered.length} of ${all.length} peers${
-                workspaceFilter === "all" ? " across all workspaces" : ""
+                workspaceFilter === null ? " across all workspaces" : ""
               }`}
         </div>
       </Panel>
@@ -313,7 +309,7 @@ export function PeersPage() {
                 exit={{ opacity: 0, scale: 0.97 }}
                 transition={{ delay: Math.min(i * 0.02, 0.2), duration: 0.2 }}
               >
-                <PeerRow peer={p} onAction={() => refetch()} navigate={navigate} />
+                <PeerRow peer={p} onAction={() => refetch()} />
               </motion.div>
             ))}
           </AnimatePresence>
@@ -365,13 +361,12 @@ export function PeersPage() {
 function PeerRow({
   peer,
   onAction,
-  navigate,
 }: {
   peer: DecoratedPeer;
   onAction: () => void;
-  navigate: (k: "sessions" | "messages") => void;
 }) {
   const apiOpts = useActiveHonchoOptions();
+  const { setWorkspaceId } = useActiveWorkspace();
   const { push } = useToast();
   const confirm = useConfirm();
   const { enabled: canWrite } = useWriteActions();
@@ -424,14 +419,12 @@ function PeerRow({
       setDetails((d) => ({ ...d, loading: true, error: undefined }));
       (async () => {
         try {
-          const sdk = getSdk(opts, peer.workspace_id);
-          const peerObj = await sdk.peer(peer.id);
           const detailUrl =
             `/api/operator/db?view=peer_detail&workspace_id=${encodeURIComponent(peer.workspace_id)}` +
             `&peer_id=${encodeURIComponent(peer.id)}`;
           const [sessionsPage, card, opDetail] = await Promise.all([
-            peerObj.sessions({ size: 1 }).catch(() => null),
-            peerObj.card().catch(() => null),
+            raw.peers.sessions(opts, peer.workspace_id, peer.id, { size: 1 }).catch(() => null),
+            raw.peers.card(opts, peer.workspace_id, peer.id).catch(() => null),
             fetch(detailUrl, { cache: "no-store" })
               .then((r) => r.json() as Promise<PeerDetailResp>)
               .catch(() => null),
@@ -556,9 +549,8 @@ function PeerRow({
     if (!apiOpts || !q) return;
     setSearching(true);
     try {
-      const peerObj = await getSdk(apiOpts, peer.workspace_id).peer(peer.id);
-      const msgs = await peerObj.search(q, { limit: 20 });
-      setSearchResults(msgs.map((m) => toApiMessage(m)));
+      const msgs = await raw.peers.search(apiOpts, peer.workspace_id, peer.id, { query: q, limit: 20 });
+      setSearchResults(msgs);
     } catch (err) {
       push({ type: "error", message: formatApiError(err) });
       setSearchResults([]);
@@ -660,8 +652,8 @@ function PeerRow({
                 <Button
                   variant="outline"
                   onClick={() => {
+                    setWorkspaceId(peer.workspace_id);
                     window.location.hash = `#/sessions?peer=${encodeURIComponent(peer.id)}`;
-                    navigate("sessions");
                   }}
                 >
                   VIEW_SESSIONS
@@ -669,8 +661,8 @@ function PeerRow({
                 <Button
                   variant="outline"
                   onClick={() => {
+                    setWorkspaceId(peer.workspace_id);
                     window.location.hash = `#/messages?peer=${encodeURIComponent(peer.id)}`;
-                    navigate("messages");
                   }}
                 >
                   VIEW_MESSAGES
@@ -678,6 +670,7 @@ function PeerRow({
                 <Button
                   variant="ghost"
                   onClick={() => {
+                    setWorkspaceId(peer.workspace_id);
                     window.location.hash = `#/context?peer=${encodeURIComponent(peer.id)}`;
                   }}
                 >
