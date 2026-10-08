@@ -170,6 +170,33 @@ HONCHO_PROXY_ALLOWED_BASES=http://honcho:8000   # multi-instance allowlist
 The dashboard container exposes port `3000`. If you co-locate it with Honcho on the same
 Docker network, the proxy can talk to Honcho via the internal service name.
 
+## Quick start (Unraid)
+
+An Unraid Community Applications template is included at [`templates/honcho-dashboard.xml`](templates/honcho-dashboard.xml).
+
+### Installation via Template URL
+1. In the Unraid web interface, go to **Docker** -> **Add Container**.
+2. Enter the raw template URL under **Template Repositories** or load it directly:
+   ```text
+   https://raw.githubusercontent.com/outpoints/honcho-dashboard/main/templates/honcho-dashboard.xml
+   ```
+3. Set your configuration:
+   - **Network:** Select your custom Docker network (e.g. `proxynet` or `br0`) if communicating with Honcho via container hostname.
+   - **WebUI Port:** Default is `3002` (mapped to container port `3000`).
+   - **Honcho Proxy Base URL:** URL of your Honcho server (e.g. `http://honcho-aio:8000` or `http://192.168.1.5:8000`).
+   - **Proxy Allowed Bases:** Comma-separated allowlist containing your upstream Honcho URL.
+
+### Pairing with `honcho-aio` (Advanced Diagnostics)
+To enable the database metrics (throughput heatmap, table sizes) and live log tailing when paired with `honcho-aio`:
+- **Database Connection:** Set `HONCHO_DATABASE_URL` to your PostgreSQL connection string:
+  ```text
+  postgresql+psycopg://postgres:<PASSWORD>@honcho-aio:5432/honcho
+  ```
+  *(Ensure `honcho-aio` has `POSTGRES_ALLOW_REMOTE=true` enabled).*
+- **Live Logs:** Set host path for `Honcho Log File Mount` to your `honcho-aio` log directory:
+  - Host Path: `/mnt/user/appdata/honcho-aio/logs/honcho.log`
+  - Container Path: `/honcho.log` (Read-only)
+
 ## Repo layout
 
 ```
